@@ -5,7 +5,7 @@ const ethers = require("ethers");
 const INFURA_API_KEY = "5add93bca5874c798ed710e830b2ac12";
 const provider = new JsonRpcProvider(`https://sepolia.infura.io/v3/${INFURA_API_KEY}`);
 const wallet = new Wallet(
-  "primary key",
+  "PRIVATE_KEY",
   provider
 );
 const start = async () => {
@@ -22,9 +22,11 @@ const start = async () => {
   const blockNumber = await provider.getBlockNumber();
   const block = await provider.getBlock(blockNumber);
 
-  const maxBaseFeeInFutureBlock = FlashbotsBundleProvider.getMaxBaseFeeInFutureBlock(block.baseFeePerGas, 6);
+  const maxBaseFeeInFutureBlock = FlashbotsBundleProvider.getMaxBaseFeeInFutureBlock(block.baseFeePerGas, 10);
 
   const amountInEther = '0.001';
+
+  const nonce = await provider.getTransactionCount(wallet.address);
 
   let signedTransactions;
   try {
@@ -41,6 +43,7 @@ const start = async () => {
           data: '0x',
           chainId: 11155111,
           value: ethers.parseEther(amountInEther),
+          nonce: nonce,
         }
       },
       {
@@ -51,6 +54,7 @@ const start = async () => {
           chainId: 11155111,
           data: '0x',
           value: ethers.parseEther(amountInEther),
+          nonce: nonce + 1,
         }
       },
     ]);
@@ -83,11 +87,19 @@ const start = async () => {
   }
 
   for (var i = 1; i <= 10; i++) {
-    const bundleSubmission = flashbotsProvider.sendRawBundle(
+    const targetBlockNumber = blockNumber + i;
+
+    const bundleSubmission = await flashbotsProvider.sendRawBundle(
       signedTransactions,
-      blockNumber + i,
+      targetBlockNumber,
     );
     console.log("submitted for block # ", blockNumber + i);
+
+    if ('error' in bundleSubmission) {
+      console.error(`Error submitting bundle: ${bundleSubmission.error.message}`);
+  } else {
+      console.log(`Bundle submitted for block #${targetBlockNumber}`);
+  }
   }
   console.log("bundles submitted");
 }
